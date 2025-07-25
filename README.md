@@ -80,3 +80,4 @@ Cada gráfico gerado pode ser apresentado separadamente, com destaque para:
 - Ações recomendadas com base nos dados
 
 Os arquivos CSV gerados contêm os dados brutos usados nos gráficos, permitindo análises adicionais ou verificações.git
+
