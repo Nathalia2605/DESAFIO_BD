@@ -7,55 +7,52 @@ import seaborn as sns
 from matplotlib.patches import Patch
 
 # Configurações
-sns.set(style="whitegrid")
+sns.set(style="whitegrid")                          # Define o estilo dos gráficos do Seaborn
 plt.rcParams["figure.figsize"] = (12, 6)
 
-# Leitura dos dados
-order_items = pd.read_csv("order_items.csv")
-payments = pd.read_csv("pag_de_pedidos.csv")
-orders = pd.read_csv("pedidos.csv")
-product_category_translation = pd.read_csv("produto_categoria_traducao.csv")
-products = pd.read_csv("produtos.csv")
-reviews = pd.read_csv("analise.csv")
-customers = pd.read_csv("clientes.csv")
+# Leitura dos dados/Carrega cada arquivo CSV em um (tipo tabela do panda) Dataframe separado
+order_items = pd.read_csv("order_items.csv")  # Itens dos pedidos
+payments = pd.read_csv("pag_de_pedidos.csv")  # Informações de pagamento
+orders = pd.read_csv("pedidos.csv")           # Dados principais dos pedidos
+product_category_translation = pd.read_csv("produto_categoria_traducao.csv")  # Tradução de categorias
+products = pd.read_csv("produtos.csv")        # Dados dos produtos
+reviews = pd.read_csv("analise.csv")          # Análises/reviews dos clientes
+customers = pd.read_csv("clientes.csv")       # Dados dos clientes
 
-# Tratamento de datas
+# Converte colunas de texto para formato de data
 orders["order_purchase_timestamp"] = pd.to_datetime(orders["order_purchase_timestamp"])
 orders["order_approved_at"] = pd.to_datetime(orders["order_approved_at"])
-orders["order_delivered_customer_date"] = pd.to_datetime(
-    orders["order_delivered_customer_date"]
-)
-orders["order_estimated_delivery_date"] = pd.to_datetime(
-    orders["order_estimated_delivery_date"]
-)
+orders["order_delivered_customer_date"] = pd.to_datetime(orders["order_delivered_customer_date"])
+orders["order_estimated_delivery_date"] = pd.to_datetime(orders["order_estimated_delivery_date"])
 
-# Mesclagem de dados
-products_merged = products.merge(
-    product_category_translation, how="left", on="product_category_name"
-)
+# Une produtos com tradução de categorias
+products_merged = products.merge(product_category_translation, how="left", on="product_category_name")
+
+# Combina itens de pedido com informações de produtos
 order_items_products = order_items.merge(products_merged, on="product_id", how="left")
+
+# Adiciona dados dos pedidos
 order_items_orders = order_items_products.merge(orders, on="order_id", how="left")
-order_full = order_items_orders.merge(
-    reviews[["order_id", "review_score"]], on="order_id", how="left"
-)
-order_full = order_full.merge(
-    payments[["order_id", "payment_value"]], on="order_id", how="left"
-)
+
+# Incorpora avaliações e pagamentos
+order_full = order_items_orders.merge(reviews[["order_id", "review_score"]], on="order_id", how="left")
+order_full = order_full.merge(payments[["order_id", "payment_value"]], on="order_id", how="left")
+
+# Cria coluna com mês da compra para análise temporal
 order_full["purchase_month"] = order_full["order_purchase_timestamp"].dt.to_period("M")
 
-# 1.b - Sazonalidade nas vendas e identificação de períodos de maior volume
-sales_by_month = (
-    order_full.groupby("purchase_month").agg({"order_id": "nunique"}).reset_index()
-)
-sales_by_month.columns = ["Mês", "Pedidos"]
-sales_by_month["Mês"] = sales_by_month["Mês"].astype(str)
 
-# Estatísticas de sazonalidade
-pedidos_medio = sales_by_month["Pedidos"].mean()
-pedidos_max = sales_by_month["Pedidos"].max()
-pedidos_min = sales_by_month["Pedidos"].min()
-mes_maior_venda = sales_by_month.loc[sales_by_month["Pedidos"].idxmax(), "Mês"]
-mes_menor_venda = sales_by_month.loc[sales_by_month["Pedidos"].idxmin(), "Mês"]
+# Agrupa pedidos por mês e conta pedidos únicos
+sales_by_month = order_full.groupby("purchase_month").agg({"order_id": "nunique"}).reset_index()
+sales_by_month.columns = ["Mês", "Pedidos"]  # Renomeia colunas
+sales_by_month["Mês"] = sales_by_month["Mês"].astype(str)  # Converte período para string
+
+# Calcula estatísticas descritivas
+pedidos_medio = sales_by_month["Pedidos"].mean()  # Média de pedidos
+pedidos_max = sales_by_month["Pedidos"].max()  # Máximo de pedidos
+pedidos_min = sales_by_month["Pedidos"].min()  # Mínimo de pedidos
+mes_maior_venda = sales_by_month.loc[sales_by_month["Pedidos"].idxmax(), "Mês"]  # Mês com maior venda
+mes_menor_venda = sales_by_month.loc[sales_by_month["Pedidos"].idxmin(), "Mês"]  # Mês com menor venda
 
 
 # Gráfico principal de sazonalidade
@@ -72,9 +69,15 @@ plt.ylabel("Número de Pedidos")
 plt.xticks(rotation=45)
 
 # Destacar picos e vales
-pico_idx = sales_by_month["Pedidos"].idxmax()
-vale_idx = sales_by_month["Pedidos"].idxmin()
-plt.scatter(
+pico_idx = sales_by_month["Pedidos"].idxmax()  # Encontra índice do mês com maior volume
+vale_idx = sales_by_month["Pedidos"].idxmin()  # Encontra índice do mês com menor volume
+
+#plt.scatter()  # Marca pontos de pico e vale
+#plt.axhline()  # Linha da média
+#plt.legend()   # Legenda
+#plt.grid()     # Grade
+
+plt.scatter(   # Marca pontos de pico e vale
     sales_by_month.loc[pico_idx, "Mês"],
     sales_by_month.loc[pico_idx, "Pedidos"],
     color="red",
@@ -82,7 +85,7 @@ plt.scatter(
     zorder=5,
     label=f"Pico: {pedidos_max:.0f} pedidos",
 )
-plt.scatter(
+plt.scatter(   
     sales_by_month.loc[vale_idx, "Mês"],
     sales_by_month.loc[vale_idx, "Pedidos"],
     color="blue",
@@ -90,7 +93,7 @@ plt.scatter(
     zorder=5,
     label=f"Vale: {pedidos_min:.0f} pedidos",
 )
-plt.axhline(
+plt.axhline(     # Linha da média
     y=pedidos_medio,
     color="green",
     linestyle="--",
@@ -99,6 +102,7 @@ plt.axhline(
 )
 plt.legend()
 plt.grid(True, alpha=0.3)
+
 
 # Gráfico 2: Top categorias por mês (análise de sazonalidade por categoria)
 plt.subplot(2, 2, 2)
